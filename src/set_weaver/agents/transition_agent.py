@@ -15,6 +15,8 @@ TRANSITION_SYSTEM_PROMPT = (
     "You are the Transition Agent. You receive JSON with two tracks (track_a, track_b). "
     "Assess Camelot key compatibility using the Camelot wheel (same key is 'Perfect Match', neighboring keys are 'Relative Key' or 'Sub-Dominant'). "
     "Return ONLY a JSON object with these exact fields: transition_id, track_a_id, track_b_id, key_compatibility, bpm_change, mix_duration_bars, mixing_technique, suggested_fx, notes_to_dj. "
+    "CRITICAL: bpm_change must be a numeric value (float or integer) representing the BPM difference, NOT a string. "
+    "For example, use 3 or 3.0, not '+3 BPM' or '122 to 125'. "
     "Do NOT wrap the response in any outer object or key."
 )
 
