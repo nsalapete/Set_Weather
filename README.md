@@ -13,7 +13,7 @@ Set Weaver orchestrates three Claude-based agents to design structured DJ setlis
 
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
-SPOTIFY_CLIENT_ID=8b47b67907f141889dcd7a56bbfb7669
+SPOTIFY_CLIENT_ID=8b4.....
 ```
 
 ## Installation
