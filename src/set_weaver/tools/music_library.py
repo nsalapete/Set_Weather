@@ -1,9 +1,10 @@
-"""Simulated music library tool for Claude tool-use demos."""
+"""Music library tool that can hit Spotify or fall back to static data."""
 from __future__ import annotations
 
 from typing import Any, Iterable, List
 
 from set_weaver.schemas.track_data import TrackData, TrackFilter, asdict_sequence
+from set_weaver.tools.spotify_library import query_spotify_library, spotify_enabled
 
 
 MUSIC_LIBRARY: List[TrackData] = [
@@ -94,21 +95,16 @@ def query_music_library(filters: dict | TrackFilter) -> List[TrackData]:
     """Return tracks that match the requested filter envelope."""
 
     filter_model = filters if isinstance(filters, TrackFilter) else TrackFilter.model_validate(filters)
-    matches: List[TrackData] = []
-    for track in MUSIC_LIBRARY:
-        if not (filter_model.bpm_min <= track.bpm <= filter_model.bpm_max):
-            continue
-        if track.genre.lower() != filter_model.genre.lower():
-            continue
-        if filter_model.key_camelot and track.key_camelot != filter_model.key_camelot:
-            continue
-        if filter_model.energy_min and track.energy_level < filter_model.energy_min:
-            continue
-        if filter_model.energy_max and track.energy_level > filter_model.energy_max:
-            continue
-        matches.append(track)
-    matches.sort(key=lambda t: (t.bpm, t.energy_level))
-    return matches
+    if not spotify_enabled():
+        msg = "Spotify credentials are required. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to use the library tool."
+        raise RuntimeError(msg)
+    try:
+        spotify_results = query_spotify_library(filter_model)
+    except Exception as exc:  # pragma: no cover - logging only
+        raise RuntimeError(f"Spotify query failed: {exc}") from exc
+    if not spotify_results:
+        raise RuntimeError("Spotify did not return any tracks for the requested filters")
+    return spotify_results
 
 
 def tool_definition() -> dict[str, Any]:

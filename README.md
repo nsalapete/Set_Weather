@@ -7,6 +7,7 @@ Set Weaver orchestrates three Claude-based agents to design structured DJ setlis
 - Python 3.10+
 - An Anthropic API key set as `ANTHROPIC_API_KEY`
 - Optional: set `ANTHROPIC_MODEL` if your account lacks access to the default Claude model
+- Spotify API credentials set as `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` (library searches require Spotify)
 - Recommended: create a virtual environment before installing dependencies.
 
 > Tip: the CLI automatically loads environment variables from a `.env` file in the project root (or the file referenced by `SET_WEAVER_ENV`). Add entries such as:
@@ -14,6 +15,7 @@ Set Weaver orchestrates three Claude-based agents to design structured DJ setlis
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
 SPOTIFY_CLIENT_ID=8b4.....
+SPOTIFY_CLIENT_SECRET=741.....
 ```
 
 ## Installation
@@ -37,7 +39,7 @@ Add `--compact` for single-line JSON or `--override-title "My Set"` to force a t
 ## Project Layout
 
 - `src/set_weaver/schemas/` – Pydantic models for tracks, transitions, and setlists.
-- `src/set_weaver/tools/` – The simulated `query_music_library` tool and helpers.
+- `src/set_weaver/tools/` – Spotify-backed `query_music_library` tool and helpers.
 - `src/set_weaver/agents/` – Claude agent wrappers for Strategist, Library, and Transition roles.
 - `src/main.py` – Command-line entry point tying the agents together.
 
@@ -47,19 +49,19 @@ Set Weaver includes helpers for Spotify's OAuth 2.0 flow using PKCE. Export your
 
 ```powershell
 $env:SPOTIFY_CLIENT_ID = "8b47b67907f141889dcd7a56bbfb7669"
-python -m set_weaver.cli spotify-auth-url --redirect-uri "http://localhost:8080/callback" --scope playlist-read-private --scope user-read-private
+python -m set_weaver.cli spotify-auth-url --redirect-uri "http://127.0.0.1:8080/callback" --scope playlist-read-private --scope user-read-private
 ```
 
 The command prints a short JSON document containing the authorization URL, generated code verifier, and state. Visit the URL, authorize the app, and capture the `code` parameter from the redirect. Exchange it for tokens:
 
 ```powershell
-python -m set_weaver.cli spotify-exchange-code --redirect-uri "http://127.0.0.1:8080/callback" --code "{CODE_FROM_REDIRECT}" --code-verifier "{CODE_VERIFIER_FROM_PREVIOUS_STEP}"
+python -m set_weaver.cli spotify-exchange-code --redirect-uri "http://127.0.0.1:8080/callback" --code "{9wgoYhCu7CwFY1lXkIby5v1vgQ0NIx-isnlcuiOYLjycve-EaNRR6SewROdYO3UcibTNOsoN6uURVunacpQKyA}" --code-verifier "{AQA8B7eQjmB9r3sADVP80QdLCXCjDcAy8LwBd25MMS0e--J1tJm6wfDpoMQ1QMDsS5R42yoiige2fXBnYq9UgWtobdRps3iX5lchsSg4_lRFkaMdWA9VysYvZt_Hb6R9ngRFzjFXwsxtBPLhLonK0bbybLX9rN8SQHRdWWjLULVrXzn2EAEzV3r3wpnNBIXS4hIXa-wjixWYZf6wRcXh7ypi6F3CuRWD65-QUd5mpIL6gtTv7D2LYeXZ8RSbFoOgrjRlkVJv4UMoVxN-GHj2KU2z5FAaqWMAym1kIuzADg&state=mpuiUu1P2A68ESMvMFtG2g}"
 ```
 
 The output includes the access token, optional refresh token, and expiry metadata. Securely store secrets (refresh tokens, code verifier) outside of version control. Provide `--client-secret` only if you opt to use Spotify's confidential client flow.
 
 ## Extending
 
-- Replace `MUSIC_LIBRARY` with real metadata sourced from Spotify track and audio feature endpoints.
+- Extend Spotify feature usage or add persistence for fetched metadata.
 - Add persistence for generated setlists.
 - Expand prompts or tool schemas as the DJ workflow evolves.

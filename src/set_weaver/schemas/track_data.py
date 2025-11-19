@@ -67,7 +67,7 @@ class TransitionProposal(BaseModel):
 
     transition_id: str
     track_a_id: str
-    track_b_id: str
+    track_b_id: str | None = None
     key_compatibility: str
     bpm_change: float
     mix_duration_bars: int
@@ -83,7 +83,7 @@ class SetlistEntry(BaseModel):
     track_artist: str
     track_title: str
     start_time: str = Field(..., pattern=r"^[0-9]{2}:[0-9]{2}$")
-    mix_out_instructions: TransitionProposal
+    mix_out_instructions: TransitionProposal | None = None
 
 
 class SetlistReport(BaseModel):

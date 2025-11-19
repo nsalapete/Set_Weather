@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
-from typing import List
+from typing import List, Tuple
 
+import httpx
+from anthropic import APIError
 from anthropic.types import MessageParam
 
 from set_weaver.agents.base import ClaudeAgentBase
@@ -44,7 +46,14 @@ class TransitionAgent(ClaudeAgentBase):
                 ],
             }
         ]
-        response = self._create_message(messages, tools=None)
+        try:
+            response = self._create_message(messages, tools=None)
+        except (httpx.HTTPError, APIError) as exc:
+            print(
+                "⚠️ Transition Agent offline, generating heuristic fallback "
+                f"({exc.__class__.__name__}: {exc})",
+            )
+            return self._fallback_transition(track_a, track_b, str(exc))
         text_blocks = [item.text for item in response.content if item.type == "text"]
         if not text_blocks:
             msg = "Transition Agent did not return JSON content"
@@ -54,4 +63,59 @@ class TransitionAgent(ClaudeAgentBase):
         # Unwrap if Claude nested the response
         if "transition_proposal" in payload:
             payload = payload["transition_proposal"]
+        payload["key_compatibility"] = self._describe_key_relation(
+            track_a.key_camelot,
+            track_b.key_camelot,
+        )
         return TransitionProposal.model_validate(payload)
+
+    def _fallback_transition(self, track_a: TrackData, track_b: TrackData, reason: str) -> TransitionProposal:
+        """Generate deterministic instructions when Anthropic is unreachable."""
+
+        bpm_change = float(track_b.bpm - track_a.bpm)
+        key_compatibility = self._describe_key_relation(track_a.key_camelot, track_b.key_camelot)
+        notes = (
+            "Anthropic transition service unavailable ("
+            f"{reason}). Blend manually using EQ rides and prudently align phrasing."
+        )
+        return TransitionProposal(
+            transition_id=f"offline_{track_a.id}_{track_b.id}",
+            track_a_id=track_a.id,
+            track_b_id=track_b.id,
+            key_compatibility=key_compatibility,
+            bpm_change=bpm_change,
+            mix_duration_bars=32,
+            mixing_technique="Layer intro/outro over ~32 bars, trim highs on incoming track",
+            suggested_fx="Gentle low-pass on outgoing, short reverb throw",
+            notes_to_dj=notes,
+        )
+
+    @staticmethod
+    def _describe_key_relation(key_a: str, key_b: str) -> str:
+        """Approximate Camelot relationship for offline fallbacks."""
+
+        number_a, mode_a = TransitionAgent._parse_camelot(key_a)
+        number_b, mode_b = TransitionAgent._parse_camelot(key_b)
+        if number_a is None or number_b is None:
+            return "Unknown (offline fallback)"
+        if key_a == key_b:
+            return "Perfect Match"
+        if number_a == number_b and mode_a != mode_b:
+            return "Mode Swap"  # Same number, A/B flip
+        distance = min((number_a - number_b) % 12, (number_b - number_a) % 12)
+        if distance == 1:
+            return "Adjacent Key"
+        if distance == 2:
+            return "Compatible 2-step"
+        return "Creative Mix"
+
+    @staticmethod
+    def _parse_camelot(key: str) -> Tuple[int | None, str | None]:
+        try:
+            number = int(key[:-1]) % 12 or 12
+            mode = key[-1].upper()
+            if mode not in {"A", "B"}:
+                return None, None
+            return number, mode
+        except (ValueError, IndexError):
+            return None, None
