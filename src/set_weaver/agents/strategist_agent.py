@@ -19,7 +19,7 @@ STRATEGIST_SYSTEM_PROMPT = (
     "When you need tracks, call the library_search tool with precise filters. "
     "When sequencing, call transition_analysis with the two tracks so the Transition Agent can respond. "
     "Respond ONLY with a JSON object containing: set_title (string), duration_minutes (integer), and setlist (array). "
-    "Each setlist entry must have: track_id, track_artist, track_title, start_time (MM:SS format), and mix_out_instructions (the full transition proposal object). "
+    "Each setlist entry must have: track_id, track_artist, track_title, genre, bpm, key_camelot, energy_level, start_time (MM:SS format), and mix_out_instructions (the full transition proposal object). "
     "Do NOT include extra fields like track_number or transition_to_next. Do NOT wrap the response in any outer object or key."
 )
 
@@ -137,8 +137,7 @@ class StrategistAgent(ClaudeAgentBase):
             return merged
         return payload
 
-    @staticmethod
-    def _sanitize_setlist_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_setlist_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Ensure final entry mix_out_instructions are optional and consistent."""
 
         setlist = payload.get("setlist")
@@ -151,6 +150,22 @@ class StrategistAgent(ClaudeAgentBase):
             mix = entry.get("mix_out_instructions")
             track_id = entry.get("track_id")
             is_final_entry = idx == len(setlist) - 1
+            
+            # Convert empty dict to None
+            if mix == {}:
+                entry["mix_out_instructions"] = None
+                mix = None
+
+            # Hydrate missing metadata fields from cached library results
+            if track_id and track_id in self._track_cache:
+                cache_hit = self._track_cache[track_id]
+                entry.setdefault("track_artist", cache_hit.artist)
+                entry.setdefault("track_title", cache_hit.title)
+                entry.setdefault("genre", cache_hit.genre)
+                entry.setdefault("bpm", cache_hit.bpm)
+                entry.setdefault("key_camelot", cache_hit.key_camelot)
+                entry.setdefault("energy_level", cache_hit.energy_level)
+            
             if is_final_entry:
                 if mix:
                     entry["mix_out_instructions"] = None

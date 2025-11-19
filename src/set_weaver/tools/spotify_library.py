@@ -27,6 +27,13 @@ _GENRE_ALIASES = {
     "drum and bass": "drum-and-bass",
 }
 
+_FALLBACK_GENRES = [
+    "house",
+    "electronic",
+    "dance",
+    "techno",
+]
+
 _MAJOR_CAMELOT = [
     "8B",
     "3B",
@@ -145,16 +152,39 @@ class SpotifyRecommendationClient:
 
     def _fetch_via_search(self, track_filter: TrackFilter, *, limit: int) -> List[Dict]:
         """Use Spotify search (client credentials compatible, no audio-features needed)."""
-        genre_term = track_filter.genre.replace("-", " ")
-        query = f"genre:{genre_term}"
-        params = {
-            "q": query,
-            "type": "track",
-            "limit": min(limit, 50),
-        }
-        response = self._get("/search", params)
-        items = response.get("tracks", {}).get("items", [])
-        return items[:limit]
+        query_variants = self._build_search_queries(track_filter)
+        for query in query_variants:
+            params = {
+                "q": query,
+                "type": "track",
+                "limit": min(limit, 50),
+            }
+            response = self._get("/search", params)
+            items = response.get("tracks", {}).get("items", [])
+            if items:
+                return items[:limit]
+        return []
+
+    def _build_search_queries(self, track_filter: TrackFilter) -> list[str]:
+        normalized = _normalize_genre_seed(track_filter.genre)
+        fallback_queries: list[str] = []
+        if normalized:
+            fallback_queries.append(f"genre:{normalized}")
+        if track_filter.genre:
+            fallback_queries.append(track_filter.genre.strip())
+        if normalized:
+            fallback_queries.append(normalized.replace("-", " "))
+        for genre in _FALLBACK_GENRES:
+            fallback_queries.append(f"genre:{genre}")
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for term in fallback_queries:
+            candidate = term.strip()
+            if not candidate or candidate in seen:
+                continue
+            seen.add(candidate)
+            ordered.append(candidate)
+        return ordered
 
     def _get(self, path: str, params: Dict[str, str | float | int]) -> Dict:
         token = self._ensure_token()

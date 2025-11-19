@@ -82,6 +82,10 @@ class SetlistEntry(BaseModel):
     track_id: str
     track_artist: str
     track_title: str
+    genre: str
+    bpm: int
+    key_camelot: str
+    energy_level: int
     start_time: str = Field(..., pattern=r"^[0-9]{2}:[0-9]{2}$")
     mix_out_instructions: TransitionProposal | None = None
 

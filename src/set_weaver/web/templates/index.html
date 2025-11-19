@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Set Weaver · AI DJ Sets</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    </head>
+    <body>
+        <div class="app-shell">
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <div>
+                        <h1>Set Weaver</h1>
+                        <p>AI DJ studio</p>
+                    </div>
+                    <button id="newThreadBtn" class="new-thread-btn" type="button">
+                        <span class="plus">+</span>
+                        New Chat
+                    </button>
+                </div>
+                <div id="threadList" class="thread-list">
+                    {% for thread in threads %}
+                    <article class="thread" data-thread-id="{{ thread.thread_id }}">
+                        <div>
+                            <p class="thread-title">{{ thread.title }}</p>
+                            <small class="thread-timestamp">{{ thread.created_at }}</small>
+                        </div>
+                        <div class="thread-actions">
+                            <button class="ghost-btn rename-btn" aria-label="Rename">✏️</button>
+                            <button class="ghost-btn delete-btn" aria-label="Delete">🗑️</button>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                <div class="sidebar-footer">
+                    <div class="user-info">
+                        <div>
+                            <span class="username">{{ username }}</span>
+                            <small>Logged in</small>
+                        </div>
+                        <a class="link" href="{{ url_for('logout') }}">Logout</a>
+                    </div>
+                    <a class="link" href="#">Settings</a>
+                </div>
+            </aside>
+
+            <main class="chat-area">
+                <header class="chat-header">
+                    <div>
+                        <h2 id="activeThreadTitle">{{ active_thread.title if active_thread else "New Session" }}</h2>
+                        <p class="chat-subtitle">Pick a prompt or describe your dream DJ set.</p>
+                    </div>
+                    <div class="suggestions" id="suggestions"></div>
+                </header>
+
+                <section class="chat-messages" id="messageContainer">
+                    <div class="empty-state" id="emptyState">
+                        <p>Start typing to generate a guided setlist.</p>
+                        <p class="hint">Responses appear in this feed with mixing tips, transitions, and track timings.</p>
+                    </div>
+                </section>
+
+                <footer class="chat-input">
+                    <form id="promptForm">
+                        <textarea
+                            id="promptInput"
+                            rows="1"
+                            placeholder="Send a message..."
+                            autocomplete="off"
+                        ></textarea>
+                        <button id="sendButton" type="submit" class="send-btn" disabled>
+                            <span>▶</span>
+                        </button>
+                    </form>
+                    <div class="status-row">
+                        <span class="typing-indicator" id="typingIndicator">· · ·</span>
+                        <small>Shift+Enter adds a newline</small>
+                    </div>
+                </footer>
+            </main>
+        </div>
+
+        <script>
+            window.SET_WEAVER_INIT = {
+                username: "{{ username }}",
+                threads: {{ threads | tojson }},
+                activeThreadId: {{ active_thread.thread_id if active_thread else 'null' }},
+                suggestions: {{ suggestions | tojson }},
+            };
+        </script>
+        <script src="{{ url_for('static', filename='script.js') }}"></script>
+    </body>
+</html>

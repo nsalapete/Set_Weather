@@ -36,6 +36,30 @@ python -m set_weaver.cli "90 minute set, start Deep House at 120 BPM and peak wi
 
 Add `--compact` for single-line JSON or `--override-title "My Set"` to force a title. The output conforms to the Final Setlist Report schema.
 
+### Web Interface
+
+Set Weaver now ships with a Flask-powered ChatGPT-inspired UI that preserves conversations per user.
+
+1. Start the server:
+
+```powershell
+set FLASK_APP=set_weaver.web.app
+set FLASK_ENV=development
+python -m flask run
+```
+
+2. Visit `http://127.0.0.1:5000` and log in with the default credentials `setweaver / setweaver123`; adjust `SET_WEAVER_ADMIN_USER`/`SET_WEAVER_ADMIN_PASSWORD` in your environment to change the defaults.
+
+3. The sidebar tracks your conversation history (stored in `set_weaver.db`), and each thread can be renamed, deleted, or reopened on demand.
+
+4. The chat column uses the `generate_set` endpoint to create Claude-powered setlists, which are persisted per thread and replayed whenever you revisit it.
+
+### Persistence Notes
+
+- Conversations are stored in `conversations_threads` and `messages` tables within `set_weaver.db` located at the project root.
+- Each message records the sender (`user` or `ai`), timestamp, and full text payload, allowing you to keep a running history of generated setlists.
+- Extend the UI by adding AJAX hooks to `/threads` and `/thread/<thread_id>/messages` when building additional tooling or UI components.
+
 ## Project Layout
 
 - `src/set_weaver/schemas/` – Pydantic models for tracks, transitions, and setlists.
