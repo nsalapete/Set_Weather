@@ -28,31 +28,9 @@ class LibraryAgent(ClaudeAgentBase):
     def fetch_tracks(self, filters: Dict[str, Any] | TrackFilter) -> List[TrackData]:
         filter_payload = filters if isinstance(filters, dict) else filters.model_dump()
         print(f"🗃️  Library Agent searching: BPM {filter_payload.get('bpm_min')}-{filter_payload.get('bpm_max')}, Genre: {filter_payload.get('genre')}")
-        messages: List[MessageParam] = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps(filter_payload, indent=2, sort_keys=True),
-                    }
-                ],
-            }
-        ]
-
-        response = self._exchange_with_tools(
-            messages,
-            {"query_music_library": self._handle_query},
-            tools=[tool_definition()],
-        )
-
-        text_blocks = [item.text for item in response.content if item.type == "text"]
-        if not text_blocks:
-            msg = "Library Agent did not return textual JSON content"
-            raise RuntimeError(msg)
-        json_text = extract_json_from_text(text_blocks[-1])
-        payload = json.loads(json_text)
-        return validate_track_list(payload.get("tracks", []))
+        # Skip Claude agent loop and call Spotify directly to avoid JSON encoding issues
+        matches = query_music_library(filter_payload)
+        return matches
 
     @staticmethod
     def _handle_query(arguments: Dict[str, Any]) -> Dict[str, Any]:

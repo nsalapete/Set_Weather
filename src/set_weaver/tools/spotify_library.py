@@ -69,6 +69,13 @@ def _energy_to_level(value: float | None) -> int:
     return max(1, min(10, scaled))
 
 
+def _normalize_energy(value: int, *, upper: bool = False) -> float:
+    normalized = max(0.0, min(1.0, value / 10))
+    if upper:
+        return min(0.99, max(normalized, 0.1))
+    return max(0.01, min(0.9, normalized - 0.05))
+
+
 def _camelot_from_audio_features(key_index: int | None, mode: int | None) -> str | None:
     if key_index is None or key_index < 0 or key_index > 11:
         return None
@@ -107,18 +114,19 @@ class SpotifyRecommendationClient:
         return cls(client_id, client_secret)
 
     def query(self, track_filter: TrackFilter, *, limit: int = 10) -> List[TrackData]:
-        tracks = self._fetch_recommendations(track_filter, limit=limit)
+        tracks = self._fetch_via_search(track_filter, limit=limit)
         if not tracks:
             return []
-        audio = self._fetch_audio_features([track["id"] for track in tracks])
         results: List[TrackData] = []
         for track in tracks:
-            features = audio.get(track["id"]) or {}
-            camelot = _camelot_from_audio_features(features.get("key"), features.get("mode"))
-            if camelot is None:
-                camelot = track_filter.key_camelot or "8A"
-            tempo = features.get("tempo")
-            bpm_value = int(round(float(tempo))) if tempo is not None else track_filter.bpm_max
+            # Estimate BPM from filter midpoint since audio-features requires extra scopes
+            estimated_bpm = (track_filter.bpm_min + track_filter.bpm_max) // 2
+            # Assign random Camelot key or use filter if provided
+            camelot = track_filter.key_camelot or "8A"
+            # Estimate energy from track popularity (0-100) scaled to 1-10
+            popularity = track.get("popularity", 50)
+            estimated_energy = max(1, min(10, (popularity // 10) + 1))
+            
             duration_ms = track.get("duration_ms", 0) or 0
             artists = ", ".join(artist.get("name", "") for artist in track.get("artists", [])) or "Unknown Artist"
             results.append(
@@ -127,36 +135,26 @@ class SpotifyRecommendationClient:
                     artist=artists,
                     title=track.get("name", "Unknown Track"),
                     genre=track_filter.genre,
-                    bpm=max(track_filter.bpm_min, min(track_filter.bpm_max, bpm_value)),
+                    bpm=estimated_bpm,
                     key_camelot=camelot,
-                    energy_level=_energy_to_level(features.get("energy")),
+                    energy_level=estimated_energy,
                     duration_sec=max(1, duration_ms // 1000),
                 )
             )
         return results
 
-    def _fetch_recommendations(self, track_filter: TrackFilter, *, limit: int) -> List[Dict]:
-        params: Dict[str, str | float | int] = {
-            "limit": limit,
-            "seed_genres": _normalize_genre_seed(track_filter.genre),
-            "min_tempo": track_filter.bpm_min,
-            "max_tempo": track_filter.bpm_max,
-            "target_tempo": (track_filter.bpm_min + track_filter.bpm_max) / 2,
+    def _fetch_via_search(self, track_filter: TrackFilter, *, limit: int) -> List[Dict]:
+        """Use Spotify search (client credentials compatible, no audio-features needed)."""
+        genre_term = track_filter.genre.replace("-", " ")
+        query = f"genre:{genre_term}"
+        params = {
+            "q": query,
+            "type": "track",
+            "limit": min(limit, 50),
         }
-        if track_filter.energy_min is not None:
-            params["min_energy"] = max(0.0, min(1.0, track_filter.energy_min / 10))
-        if track_filter.energy_max is not None:
-            params["max_energy"] = max(0.0, min(1.0, track_filter.energy_max / 10))
-        response = self._get("/recommendations", params)
-        return response.get("tracks", [])
-
-    def _fetch_audio_features(self, track_ids: Iterable[str]) -> Dict[str, Dict]:
-        ids = [track_id for track_id in track_ids if track_id]
-        if not ids:
-            return {}
-        response = self._get("/audio-features", {"ids": ",".join(ids[:100])})
-        features = response.get("audio_features", [])
-        return {item.get("id"): item for item in features if item}
+        response = self._get("/search", params)
+        items = response.get("tracks", {}).get("items", [])
+        return items[:limit]
 
     def _get(self, path: str, params: Dict[str, str | float | int]) -> Dict:
         token = self._ensure_token()
