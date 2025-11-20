@@ -1,91 +1,103 @@
-# Set Weaver DJ Assistant
+# Set Weaver – Anthropic x Spotify DJ Assistant
 
-Set Weaver orchestrates three Claude-based agents to design structured DJ setlists. The Strategist plans the set, the Library Agent fetches tracks via a simulated catalog tool, and the Transition Agent crafts detailed mixing guidance.
+Set Weaver turns a DJ brief into a structured setlist by choreographing three Claude-powered agents plus Spotify search. You can use the CLI for quick experiments or the Flask chat UI to iterate on threads with saved history.
 
-## Prerequisites
+## Why it exists
+
+- **Multi-agent workflow** – Strategist sequences the narrative, Library Agent digs the catalog, Transition Agent writes mix tactics.
+- **Rich metadata** – Every track carries BPM, Camelot key, energy level, transition tips, FX, and DJ reminders.
+- **Persistent workspace** – Login-protected UI with conversation history, animated thinking bar, and instant thread switching.
+- **Spotify-ready** – Uses Search API out of the box, plus optional PKCE helpers for deeper OAuth scopes.
+
+## Architecture snapshot
+
+| Component | Purpose |
+| --- | --- |
+| `StrategistAgent` | Plans the full setlist, calls other agents/tools, validates JSON. |
+| `LibraryAgent` | Queries Spotify (or fallbacks) for track suggestions. |
+| `TransitionAgent` | Refines BPM/key flow and proposes FX + mix instructions. |
+| CLI (`set_weaver.cli`) | Headless orchestrator for scripts or terminal usage. |
+| Flask app (`set_weaver.web`) | Auth, SQLite persistence, chat UI, thread management. |
+
+## Requirements
 
 - Python 3.10+
-- An Anthropic API key set as `ANTHROPIC_API_KEY`
-- Optional: set `ANTHROPIC_MODEL` if your account lacks access to the default Claude model
-- Spotify API credentials set as `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` (library searches require Spotify)
-- Recommended: create a virtual environment before installing dependencies.
+- Anthropic key in `ANTHROPIC_API_KEY`
+- Spotify credentials (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`)
+- Optional knobs: `ANTHROPIC_MODEL`, `SET_WEAVER_ADMIN_USER`, `SET_WEAVER_ADMIN_PASSWORD`, or `SET_WEAVER_ENV` to point to a custom `.env`.
 
-> Tip: the CLI automatically loads environment variables from a `.env` file in the project root (or the file referenced by `SET_WEAVER_ENV`). Add entries such as:
+Minimal `.env` excerpt:
 
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
-SPOTIFY_CLIENT_ID=8b4.....
-SPOTIFY_CLIENT_SECRET=741.....
+SPOTIFY_CLIENT_ID=xxxxxxxxxxxxxxxxxxxx
+SPOTIFY_CLIENT_SECRET=yyyyyyyyyyyyyyyy
+SET_WEAVER_ADMIN_USER=setweaver
+SET_WEAVER_ADMIN_PASSWORD=setweaver123
 ```
 
-## Installation
+## Install
 
 ```powershell
+git clone https://github.com/nsalapete/Set_Weather.git
+cd Set_Weather
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .
 ```
 
-## Usage
-
-Invoke the orchestrator with a natural-language DJ brief:
+## Run the CLI (quick brief)
 
 ```powershell
-python -m set_weaver.cli "90 minute set, start Deep House at 120 BPM and peak with Tech House around 60 minutes"
+python -m set_weaver.cli "90 minute sunset slot, start at 118 BPM and peak at 125"
+# optional flags
+python -m set_weaver.cli "..." --compact
+python -m set_weaver.cli "..." --override-title "Rooftop Flow"
 ```
 
-Add `--compact` for single-line JSON or `--override-title "My Set"` to force a title. The output conforms to the Final Setlist Report schema.
+## Run the web app
 
-### Web Interface
+1. Ensure your `.env` (or exported variables) includes Anthropic + Spotify + admin credentials.
+2. From the repo root:
 
-Set Weaver now ships with a Flask-powered ChatGPT-inspired UI that preserves conversations per user.
+	```powershell
+	set FLASK_APP=set_weaver.web.app
+	set FLASK_ENV=development
+	python -m flask run
+	```
 
-1. Start the server:
+3. Browse to `http://127.0.0.1:5000` and log in (defaults: `setweaver / setweaver123`).
+4. Create threads, send prompts, rename/delete history entries; SQLite (`set_weaver.db`) keeps everything per user.
+
+### Persistence quick facts
+
+- `conversations_threads` stores per-user titles + timestamps.
+- `messages` keeps ordered chat history (`user` / `assistant`), HTML, and metadata.
+- Deleting a thread cascades its messages; creating/renaming happens through AJAX endpoints used by the UI.
+
+## Spotify OAuth helper commands (optional)
 
 ```powershell
-set FLASK_APP=set_weaver.web.app
-set FLASK_ENV=development
-python -m flask run
+python -m set_weaver.cli spotify-auth-url --redirect-uri "http://127.0.0.1:8080/callback" --scope playlist-read-private
+
+# After grabbing the `code` from your redirect:
+python -m set_weaver.cli spotify-exchange-code --redirect-uri "http://127.0.0.1:8080/callback" --code "..." --code-verifier "..."
 ```
 
-2. Visit `http://127.0.0.1:5000` and log in with the default credentials `setweaver / setweaver123`; adjust `SET_WEAVER_ADMIN_USER`/`SET_WEAVER_ADMIN_PASSWORD` in your environment to change the defaults.
+Use these if you need user-level scopes; store tokens securely and only pass `--client-secret` for confidential clients.
 
-3. The sidebar tracks your conversation history (stored in `set_weaver.db`), and each thread can be renamed, deleted, or reopened on demand.
+## Project layout
 
-4. The chat column uses the `generate_set` endpoint to create Claude-powered setlists, which are persisted per thread and replayed whenever you revisit it.
+- `src/set_weaver/agents/` – Strategist, Library, Transition agents
+- `src/set_weaver/schemas/` – Pydantic models (tracks, transitions, final reports)
+- `src/set_weaver/tools/` – Spotify search + helper utilities
+- `src/set_weaver/web/` – Flask blueprints, templates, static assets, SQLite models
+- `src/set_weaver/cli/` – CLI entry points and helper commands
 
-### Persistence Notes
+## Extending ideas
 
-- Conversations are stored in `conversations_threads` and `messages` tables within `set_weaver.db` located at the project root.
-- Each message records the sender (`user` or `ai`), timestamp, and full text payload, allowing you to keep a running history of generated setlists.
-- Extend the UI by adding AJAX hooks to `/threads` and `/thread/<thread_id>/messages` when building additional tooling or UI components.
+- Add more Anthropic tools (crowd energy detectors, venue constraints, etc.).
+- Export setlists to Rekordbox/Engine Prime using the structured JSON.
+- Swap SQLite for Postgres/MySQL before deploying multi-user hosting.
 
-## Project Layout
-
-- `src/set_weaver/schemas/` – Pydantic models for tracks, transitions, and setlists.
-- `src/set_weaver/tools/` – Spotify-backed `query_music_library` tool and helpers.
-- `src/set_weaver/agents/` – Claude agent wrappers for Strategist, Library, and Transition roles.
-- `src/main.py` – Command-line entry point tying the agents together.
-
-## Spotify OAuth Setup
-
-Set Weaver includes helpers for Spotify's OAuth 2.0 flow using PKCE. Export your Spotify client ID before generating an authorization URL:
-
-```powershell
-$env:SPOTIFY_CLIENT_ID = "8b47b67907f141889dcd7a56bbfb7669"
-python -m set_weaver.cli spotify-auth-url --redirect-uri "http://127.0.0.1:8080/callback" --scope playlist-read-private --scope user-read-private
-```
-
-The command prints a short JSON document containing the authorization URL, generated code verifier, and state. Visit the URL, authorize the app, and capture the `code` parameter from the redirect. Exchange it for tokens:
-
-```powershell
-python -m set_weaver.cli spotify-exchange-code --redirect-uri "http://127.0.0.1:8080/callback" --code "{9wgoYhCu7CwFY1lXkIby5v1vgQ0NIx-isnlcuiOYLjycve-EaNRR6SewROdYO3UcibTNOsoN6uURVunacpQKyA}" --code-verifier "{AQA8B7eQjmB9r3sADVP80QdLCXCjDcAy8LwBd25MMS0e--J1tJm6wfDpoMQ1QMDsS5R42yoiige2fXBnYq9UgWtobdRps3iX5lchsSg4_lRFkaMdWA9VysYvZt_Hb6R9ngRFzjFXwsxtBPLhLonK0bbybLX9rN8SQHRdWWjLULVrXzn2EAEzV3r3wpnNBIXS4hIXa-wjixWYZf6wRcXh7ypi6F3CuRWD65-QUd5mpIL6gtTv7D2LYeXZ8RSbFoOgrjRlkVJv4UMoVxN-GHj2KU2z5FAaqWMAym1kIuzADg&state=mpuiUu1P2A68ESMvMFtG2g}"
-```
-
-The output includes the access token, optional refresh token, and expiry metadata. Securely store secrets (refresh tokens, code verifier) outside of version control. Provide `--client-secret` only if you opt to use Spotify's confidential client flow.
-
-## Extending
-
-- Extend Spotify feature usage or add persistence for fetched metadata.
-- Add persistence for generated setlists.
-- Expand prompts or tool schemas as the DJ workflow evolves.
+🎧 Happy mixing!
