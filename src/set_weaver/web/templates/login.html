@@ -7,24 +7,50 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body class="login-page">
-    <main class="login-card">
-      <h1>Set Weaver</h1>
-      <p class="login-subtitle">AI DJ sets require a secure session.</p>
-      {% if error %}
-      <div class="alert">{{ error }}</div>
-      {% endif %}
-      <form method="post" class="login-form">
-        <label>
-          Username
-          <input type="text" name="username" autocomplete="username" required />
-        </label>
-        <label>
-          Password
-          <input type="password" name="password" autocomplete="current-password" required />
-        </label>
-        <button type="submit">Sign In</button>
-      </form>
-      <p class="login-hint">Default credentials: setweaver / setweaver123 (configurable via env)</p>
-    </main>
+    <div class="login-grid">
+      <section class="login-hero">
+        <div class="login-hero-glow"></div>
+        <img
+          src="{{ url_for('static', filename='brand-logo.svg') }}"
+          alt="Set Weaver Logo"
+          class="login-logo"
+        />
+        <h1>Craft smarter DJ sets</h1>
+        <p>Anthropic-powered agents plan your entire mix with transitions, timing, and energy flow.</p>
+        <ul>
+          <li>Spotify-assisted crate digging</li>
+          <li>Transition blueprints with FX + EQ tips</li>
+          <li>Persistent chat memory per DJ session</li>
+        </ul>
+      </section>
+      <main class="login-card">
+        <div class="login-card-header">
+          <img
+            src="{{ url_for('static', filename='brand-logo.svg') }}"
+            alt="Set Weaver"
+            class="login-card-logo"
+          />
+          <div>
+            <h2>Welcome back</h2>
+            <p class="login-subtitle">Sign in to continue your threads.</p>
+          </div>
+        </div>
+        {% if error %}
+        <div class="alert">{{ error }}</div>
+        {% endif %}
+        <form method="post" class="login-form">
+          <label>
+            Username
+            <input type="text" name="username" autocomplete="username" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Continue</button>
+        </form>
+        <p class="login-hint">Default credentials: setweaver / setweaver123 (configurable via env)</p>
+      </main>
+    </div>
   </body>
 </html>

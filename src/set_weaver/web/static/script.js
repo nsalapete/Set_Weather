@@ -14,6 +14,10 @@ const emptyState = document.getElementById("emptyState");
 const suggestionsContainer = document.getElementById("suggestions");
 const typingIndicator = document.getElementById("typingIndicator");
 const activeTitle = document.getElementById("activeThreadTitle");
+const thinkingPanel = document.getElementById("thinkingPanel");
+const thinkingStatus = document.getElementById("thinkingStatus");
+const thinkingProgressBar = document.getElementById("thinkingProgressBar");
+const thinkingMeta = document.getElementById("thinkingMeta");
 
 if (promptInput) {
     promptInput.addEventListener("input", handleInput);
@@ -287,12 +291,13 @@ const thinkingStates = [
 
 function startThinkingAnimation() {
     thinkingIndex = 0;
-    typingIndicator.textContent = thinkingStates[0];
+    updateThinkingUI();
     typingIndicator.classList.add("active");
-    
+    thinkingPanel?.classList.add("active");
+
     thinkingInterval = setInterval(() => {
         thinkingIndex = (thinkingIndex + 1) % thinkingStates.length;
-        typingIndicator.textContent = thinkingStates[thinkingIndex];
+        updateThinkingUI();
     }, 2000);
 }
 
@@ -303,10 +308,37 @@ function stopThinkingAnimation() {
     }
     typingIndicator.classList.remove("active");
     typingIndicator.textContent = "· · ·";
+    if (thinkingPanel) {
+        thinkingPanel.classList.remove("active");
+    }
+    if (thinkingProgressBar) {
+        thinkingProgressBar.style.width = "0%";
+    }
+    if (thinkingStatus) {
+        thinkingStatus.textContent = "";
+    }
+    if (thinkingMeta) {
+        thinkingMeta.textContent = "";
+    }
 }
 
 function showTyping(active) {
     typingIndicator.classList.toggle("active", active);
+}
+
+function updateThinkingUI() {
+    const status = thinkingStates[thinkingIndex] || thinkingStates[0];
+    typingIndicator.textContent = status;
+    if (thinkingStatus) {
+        thinkingStatus.textContent = status;
+    }
+    if (thinkingMeta) {
+        thinkingMeta.textContent = `Step ${thinkingIndex + 1} / ${thinkingStates.length}`;
+    }
+    if (thinkingProgressBar) {
+        const progress = ((thinkingIndex + 1) / thinkingStates.length) * 100;
+        thinkingProgressBar.style.width = `${progress}%`;
+    }
 }
 
 function appendMessageBubble(message, options = {}) {

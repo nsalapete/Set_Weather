@@ -2,6 +2,7 @@ anthropic>=0.34.0
 pydantic>=2.7.0
 requests>=2.32.0
 python-dotenv>=1.0.1
+flask>=3.0.0
 
 [dev]
 pytest>=7.4.0

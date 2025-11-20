@@ -18,4 +18,8 @@ src/set_weaver/schemas/__init__.py
 src/set_weaver/schemas/track_data.py
 src/set_weaver/tools/__init__.py
 src/set_weaver/tools/music_library.py
+src/set_weaver/tools/spotify_library.py
 src/set_weaver/tools/spotify_oauth.py
+src/set_weaver/web/__init__.py
+src/set_weaver/web/app.py
+src/set_weaver/web/db.py

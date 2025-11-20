@@ -54,6 +54,24 @@
                     <div class="suggestions" id="suggestions"></div>
                 </header>
 
+                <div class="thinking-panel" id="thinkingPanel">
+                    <div class="thinking-icon">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </div>
+                    <div class="thinking-body">
+                        <div class="thinking-headline">
+                            <p class="thinking-label">Planning your setlist</p>
+                            <span class="thinking-meta" id="thinkingMeta">Step 1 / 8</span>
+                        </div>
+                        <p class="thinking-status" id="thinkingStatus">Analyzing your request...</p>
+                        <div class="thinking-progress">
+                            <div class="thinking-progress-bar" id="thinkingProgressBar"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <section class="chat-messages" id="messageContainer">
                     <div class="empty-state" id="emptyState">
                         <p>Start typing to generate a guided setlist.</p>
@@ -85,7 +103,7 @@
             window.SET_WEAVER_INIT = {
                 username: "{{ username }}",
                 threads: {{ threads | tojson }},
-                activeThreadId: {{ active_thread.thread_id if active_thread else 'null' }},
+                activeThreadId: {{ (active_thread.thread_id if active_thread else none) | tojson }},
                 suggestions: {{ suggestions | tojson }},
             };
         </script>
