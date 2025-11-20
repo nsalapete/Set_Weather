@@ -241,7 +241,7 @@ body {
     align-items: flex-end;
 }
 
-.message-item.ai {
+.message-item.assistant {
     align-items: flex-start;
 }
 
@@ -259,10 +259,22 @@ body {
     border: none;
 }
 
-.message-item.ai .message-bubble {
+.message-item.assistant .message-bubble {
     background: var(--bg-card);
     color: var(--text-primary);
     border: 1px solid var(--border-subtle);
+}
+
+.message-item.pending .message-bubble {
+    opacity: 0.75;
+    border-style: dashed;
+    border-color: var(--border-emphasis);
+}
+
+.message-item.error .message-bubble {
+    border-color: rgba(239, 68, 68, 0.5);
+    background: rgba(239, 68, 68, 0.1);
+    color: #fecdd3;
 }
 
 .empty-state {

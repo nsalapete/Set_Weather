@@ -53,7 +53,8 @@ function autoResizeTextarea() {
 
 function updateSendState() {
     const text = promptInput.value.trim();
-    sendButton.disabled = !text || state.isGenerating;
+    const hasThread = Boolean(state.activeThreadId);
+    sendButton.disabled = !text || state.isGenerating || !hasThread;
 }
 
 function renderSuggestionChips(suggestions) {
@@ -136,6 +137,11 @@ async function deleteThread(threadId) {
     if (state.activeThreadId === threadId) {
         state.activeThreadId = null;
         messageContainer.innerHTML = "";
+        if (state.threads.length) {
+            await setActiveThread(state.threads[0].thread_id);
+        } else {
+            await createNewThread();
+        }
     }
     renderThreads();
 }
@@ -165,6 +171,20 @@ async function createNewThread() {
     activeTitle.textContent = payload.thread.title;
     renderThreads();
     await loadThread(payload.thread.thread_id);
+}
+
+async function ensureActiveThread() {
+    if (state.activeThreadId) {
+        return state.activeThreadId;
+    }
+
+    if (state.threads.length) {
+        await setActiveThread(state.threads[0].thread_id);
+        return state.activeThreadId;
+    }
+
+    await createNewThread();
+    return state.activeThreadId;
 }
 
 async function loadThread(threadId) {
@@ -212,27 +232,39 @@ async function handleSubmit(event) {
     if (state.isGenerating) return;
     const text = promptInput.value.trim();
     if (!text) return;
+    await ensureActiveThread();
+    if (!state.activeThreadId) {
+        console.error("Unable to create or select a conversation thread.");
+        return;
+    }
     state.isGenerating = true;
     updateSendState();
     startThinkingAnimation();
     promptInput.value = "";
     autoResizeTextarea();
+    emptyState.style.display = "none";
+    const pendingBubble = appendMessageBubble({ sender: "user", content: text }, { temporary: true });
     try {
         const response = await fetch(`/thread/${state.activeThreadId}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ content: text }),
         });
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(errText || `Request failed (${response.status})`);
+        }
         const payload = await response.json();
         console.log("Received payload:", payload);
         if (payload.messages) {
             console.log("Rendering messages:", payload.messages.length);
             renderMessages(payload.messages);
         } else {
-            console.error("No messages in payload");
+            throw new Error("No messages returned in payload");
         }
     } catch (error) {
         console.error("Error in handleSubmit:", error);
+        markBubbleAsError(pendingBubble, error?.message || "Unable to send message");
     } finally {
         state.isGenerating = false;
         updateSendState();
@@ -275,6 +307,38 @@ function stopThinkingAnimation() {
 
 function showTyping(active) {
     typingIndicator.classList.toggle("active", active);
+}
+
+function appendMessageBubble(message, options = {}) {
+    const { temporary = false } = options;
+    const container = document.createElement("div");
+    container.className = `message-item ${message.sender}`;
+    if (temporary) {
+        container.classList.add("pending");
+    }
+
+    const bubble = document.createElement("div");
+    bubble.className = "message-bubble";
+    if (message.sender === "assistant") {
+        bubble.innerHTML = message.content;
+    } else {
+        bubble.innerHTML = escapeHtml(message.content);
+    }
+
+    container.appendChild(bubble);
+    messageContainer.appendChild(container);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+    return container;
+}
+
+function markBubbleAsError(container, errorText) {
+    if (!container) return;
+    container.classList.remove("pending");
+    container.classList.add("error");
+    const bubble = container.querySelector(".message-bubble");
+    if (bubble) {
+        bubble.textContent = errorText;
+    }
 }
 
 function escapeHtml(str) {

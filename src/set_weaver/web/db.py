@@ -57,8 +57,49 @@ def init_db() -> None:
             )
             """
         )
+        _ensure_messages_sender_constraint(conn)
     conn.close()
     _ensure_default_user()
+
+
+def _ensure_messages_sender_constraint(conn: sqlite3.Connection) -> None:
+    """Ensure the messages table accepts the 'assistant' sender value."""
+
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='messages'"
+    ).fetchone()
+    if not row or row[0] is None:
+        return
+
+    table_sql: str = row[0]
+    if "'assistant'" in table_sql:
+        return
+
+    conn.execute("ALTER TABLE messages RENAME TO messages_old")
+    conn.execute(
+        """
+        CREATE TABLE messages (
+            message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            thread_id INTEGER NOT NULL,
+            sender TEXT NOT NULL CHECK(sender IN ('user','assistant')),
+            content TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            FOREIGN KEY(thread_id) REFERENCES conversations_threads(thread_id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO messages (message_id, thread_id, sender, content, timestamp)
+        SELECT message_id,
+               thread_id,
+               CASE WHEN sender = 'ai' THEN 'assistant' ELSE sender END,
+               content,
+               timestamp
+        FROM messages_old
+        """
+    )
+    conn.execute("DROP TABLE messages_old")
 
 
 def _ensure_default_user() -> None:
@@ -167,6 +208,7 @@ def get_thread(thread_id: int) -> sqlite3.Row | None:
 
 
 def add_message(thread_id: int, sender: str, content: str) -> int:
+    sender = "assistant" if sender == "ai" else sender
     now = datetime.utcnow().isoformat()
     conn = _connect_db()
     with conn:
